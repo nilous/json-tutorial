@@ -1,5 +1,7 @@
 #include "leptjson.h"
 #include <assert.h>  /* assert() */
+#include <ctype.h>   /* isblank() */
+#include <math.h>    /* HUGE_VAL */
 #include <stdlib.h>  /* NULL, strtod() */
 
 #define EXPECT(c, ch)       do { assert(*c->json == (ch)); c->json++; } while(0)
@@ -43,11 +45,76 @@ static int lept_parse_null(lept_context* c, lept_value* v) {
 }
 
 static int lept_parse_number(lept_context* c, lept_value* v) {
-    char* end;
-    /* \TODO validate number */
-    v->n = strtod(c->json, &end);
-    if (c->json == end)
+    const char* end;
+    const char *origin = c->json;
+
+    if (*c->json == '-')
+        c->json++;
+
+    /**
+     * integer part
+     */
+
+    // at least one digit is required in the integer part
+    if (!isdigit(*c->json))
         return LEPT_PARSE_INVALID_VALUE;
+
+    if (*c->json == '0') {
+        // leading 0s are not allowed
+        if (isdigit(*(c->json + 1)))
+            return LEPT_PARSE_INVALID_VALUE;
+    }
+
+    c->json++;
+    // go through integer part
+    while (isdigit(*c->json))
+        c->json++;
+
+    /**
+     * frag part
+     */
+    if (*c->json == '.') {
+        c->json++;
+        // at least one digit is required in the frag part
+        if (!isdigit(*c->json))
+            return LEPT_PARSE_INVALID_VALUE;
+
+        // go through frag part
+        c->json++;
+        while (isdigit(*c->json))
+            c->json++;
+    }
+
+    /**
+     * exponent part
+     */
+    if (*c->json == 'e' || *c->json == 'E') {
+        c->json++;
+        if (*c->json == '+' || *c->json == '-')
+            c->json++;
+
+        // NOTE!: leading 0s **is allowed** in the exponent part
+
+        // at least one digit is required in the exponent part
+        if (!isdigit(*c->json))
+            return LEPT_PARSE_INVALID_VALUE;
+
+        c->json++;
+        while (isdigit(*c->json))
+            c->json++;
+    }
+
+    // followed with unexpected chracters
+    if (*c->json != '\0' && !isblank(*c->json))
+        return LEPT_PARSE_INVALID_VALUE;
+
+    end = c->json;
+    c->json = origin;
+
+    v->n = strtod(c->json, NULL);
+    if (v->n == HUGE_VAL || v->n == -HUGE_VAL)
+        return LEPT_PARSE_NUMBER_TOO_BIG;
+
     c->json = end;
     v->type = LEPT_NUMBER;
     return LEPT_PARSE_OK;
