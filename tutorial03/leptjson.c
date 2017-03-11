@@ -153,12 +153,13 @@ lept_type lept_get_type(const lept_value* v) {
 }
 
 int lept_get_boolean(const lept_value* v) {
-    /* \TODO */
-    return 0;
+    assert(v != NULL && (v->type == LEPT_TRUE || v->type == LEPT_FALSE));
+    return v->type == LEPT_TRUE;
 }
 
 void lept_set_boolean(lept_value* v, int b) {
-    /* \TODO */
+    assert(v != NULL);
+    v->type = b;
 }
 
 double lept_get_number(const lept_value* v) {
@@ -167,7 +168,9 @@ double lept_get_number(const lept_value* v) {
 }
 
 void lept_set_number(lept_value* v, double n) {
-    /* \TODO */
+    assert(v != NULL);
+    v->type = LEPT_NUMBER;
+    v->u.n = n;
 }
 
 const char* lept_get_string(const lept_value* v) {
